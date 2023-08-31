@@ -25,7 +25,7 @@
  * @
  * @Author: sizaif
  * @Date: 2023-08-29 21:19:57
- * @LastEditTime: 2023-08-30 21:58:18
+ * @LastEditTime: 2023-08-31 17:16:34
  * @Description: 
  * @
  */
@@ -47,11 +47,9 @@ class ElemMeta
 {
 public:
   uint32_t occupiedSize;
-  uint32_t elem_realy_size;
   void init()
   {
     occupiedSize = 0;
-    elem_realy_size = 0;
   }
 };
 
@@ -63,7 +61,8 @@ public:
   uint32_t rear;
   uint32_t front;
   uint32_t numElem;
-  char data[1];
+  // char data[1];
+  char data[]; // 柔性数组，长度可根据实际需要分配
 };
 
 enum class ShmRole: uint32_t

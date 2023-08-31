@@ -1,5 +1,6 @@
 #include "shm_mque.h"
-
+#include <stdio.h>
+#include <iostream>
 ShmQueueMeta::ShmQueueMeta():
   maxElem(0), elemSize(0), totalDataSize(0), queueSize(0), name(nullptr), shmemFd(-1), queue(nullptr)
 {}
@@ -36,14 +37,13 @@ void ShmQueueMeta::closeQueue()
 bool ShmQueueMeta::initQueue(ShmRole role,const char *name, uint32_t maxElem, uint32_t elemSize, bool removeFile)
 {
   if(removeFile) shm_unlink(name);
-
   return initQueue(role,name, maxElem, elemSize);
 }
 
 
 bool ShmQueueMeta::initQueue(ShmRole role,const char *name, uint32_t maxElem, uint32_t elemSize)
 {
-  bool created;
+  bool created = false;
 
   this->maxElem       = maxElem;
   this->elemSize      = elemSize;
@@ -51,7 +51,7 @@ bool ShmQueueMeta::initQueue(ShmRole role,const char *name, uint32_t maxElem, ui
   this->name          = strdup(name);
   this->queueSize     = totalDataSize + sizeof(ShmQueue) - 1;
   this->role          = role;
-  created = false;
+  std::cout<<"total: "<<totalDataSize<<" , sizeof(elemeata: "<<sizeof(ElemMeta)<<" , elesize "<< elemSize<<" , sizeof(shmque)"<<sizeof(ShmQueue)<<"\n";
 
   this->shmemFd = shm_open(name, O_RDWR, S_IRUSR | S_IWUSR);
   if (this->shmemFd == -1)
@@ -78,8 +78,9 @@ bool ShmQueueMeta::initQueue(ShmRole role,const char *name, uint32_t maxElem, ui
     cleanInit();
     return false;
   }
-
+  
   this->queue = (ShmQueue*) mmap(NULL, this->queueSize, PROT_READ | PROT_WRITE, MAP_SHARED, this->shmemFd, 0);
+  printf(" shmemFd: %d ,%x \n",this->shmemFd,this->queue);
   if (this->queue == MAP_FAILED)
   {
     cleanInit();
@@ -140,7 +141,6 @@ bool ShmQueueMeta::enqueueElem(void *element, int len, bool blocking)
   curElemAccess = false;
   return enqueueElemPart(element, 0, len, blocking, true);
 }
-
 
 bool ShmQueueMeta::dequeueElem(void *element, int &occupiedSize, int &len, bool blocking)
 {
@@ -206,14 +206,14 @@ bool ShmQueueMeta::enqueueElemPart(void *element, int offset, int len, bool bloc
   elemMeta = (ElemMeta*)(&queue->data[elemHead]);
 
   // first access to this elem
-  if(curElemAccess == false)
-  {
-    curElemAccess = true;
-    elemMeta->init();
-  }
+  // if(curElemAccess == false)
+  // {
+  //   curElemAccess = true;
+  //   elemMeta->init();
+  // }
+  elemMeta->occupiedSize = 0;
   memcpy(&queue->data[elemHead + sizeof(ElemMeta) + offset], element, len);
   elemMeta->occupiedSize += len;
-  elemMeta->elem_realy_size = len;
 
   if(done == true)
   {
@@ -253,12 +253,10 @@ bool ShmQueueMeta::dequeueElemPart(void *element, int &occupiedSize, int offset,
   }
 
   occupiedSize = elemMeta->occupiedSize;
-  printf("deq: occsize: %u , realsize: %u : \n",elemMeta->occupiedSize,elemMeta->elem_realy_size);
-  len = elemMeta->elem_realy_size;
-  memcpy(element, &queue->data[elemHead + sizeof(ElemMeta) + offset], elemMeta->elem_realy_size);
+  len = occupiedSize;
+  memcpy(element, &queue->data[elemHead + sizeof(ElemMeta) + offset], occupiedSize);
 
   // memcpy(element, &queue->data[elemHead + sizeof(ElemMeta) + offset], len);
-
   if(done == true)
   {
     queue->numElem--;
